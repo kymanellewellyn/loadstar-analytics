@@ -1,4 +1,4 @@
-# **1\. Business Overview**
+# **Business Overview**
 
 ## **Who We Are**
 
