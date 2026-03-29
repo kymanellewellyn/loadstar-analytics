@@ -1,20 +1,18 @@
+# NOTE:
+# This module is the raw-event generation and landing layer for the Loadstar Analytics project. It imports reusable event builder functions and writes the generated synthetic JSON events into the maintenance raw volume for downstream bronze ingestion.
+
+
 import json
 import random
 from datetime import datetime, timedelta, timezone
-
 from src.common.paths import get_volume_path
+
 from src.maintenance.landing.event_builders import (
     create_downtime_event,
     create_failure_event,
     create_repair_event,
 )
 
-
-# NOTE:
-# This module is the raw-event generation and landing layer for the Loadstar Analytics project.
-# It does not define truck reference data or event-building logic itself.
-# Instead, it imports reusable event builder functions and writes the generated
-# synthetic JSON events into the maintenance raw volume for downstream bronze ingestion.
 
 
 def create_raw_events(number_of_events, random_seed=42):

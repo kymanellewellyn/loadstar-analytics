@@ -1,20 +1,13 @@
 # NOTE:
-# This module generates synthetic maintenance event payloads for the Loadstar Analytics project.
-# The goal is not to replay real truck telemetry, but to simulate realistic event-time JSON records
-# that a fleet, telematics, or maintenance system might emit.
-#
-# Reference/master-style attributes such as truck identity and site details come from reference_data.py.
-# Event-state attributes such as weather, sensor readings, truck status, odometer miles, and engine hours
-# are synthetically generated at event creation time to mimic operational event payloads.
-#
-# These records are intentionally synthetic and are designed to support bronze ingestion, silver
-# normalization, and gold dimensional modeling exercises.
+# This module generates synthetic maintenance event payloads. The goal is to simulate realistic event-time JSON records that a fleet, telematics, or maintenance system might emit.
+
+# Attributes such as truck identity and site details come from reference_data.py
+# Event-state attributes such as weather, sensor readings, truck status, odometer miles, and engine hours are synthetically generated at event creation time to mimic operational event payloads.
 
 
 import random
 import uuid
 from datetime import timedelta, timezone
-
 
 from src.maintenance.landing.reference_data import (
     FAILURE_TYPES,
@@ -31,7 +24,7 @@ def format_timestamp_as_utc(timestamp_value):
 
 
 
-# Generates a synthetic weather section for the event payload.
+# Generates weather section for the event payload.
 # Weather condition categories come from reference data, while numeric measurements are simulated.
 def create_weather_section():
     selected_weather = random.choice(WEATHER_CONDITIONS)
@@ -47,9 +40,8 @@ def create_weather_section():
 
 
 
-# Generates synthetic sensor readings associated with the selected failure type.
-# They are event-time simulated readings used to mimic
-# what a diagnostic or telematics payload might contain.
+# Generates sensor readings associated with the selected failure type.
+# They are event-time simulated readings used to mimic what a diagnostic or telematics payload might contain.
 def create_sensor_readings_section(failure_type):
     sensor_readings = {
         "battery_voltage": round(random.uniform(11.8, 14.1), 2),
@@ -139,9 +131,8 @@ def create_failure_event(base_timestamp):
     selected_failure = random.choice(FAILURE_TYPES)
     selected_vendor = random.choice(VENDORS)
 
-    producer_section, truck_section, location_section = create_common_sections(
-    producer_system="fleet_telematics_gateway"
-)
+    producer_section, truck_section, location_section = create_common_sections(producer_system="fleet_telematics_gateway")
+    
     truck_section["status"] = "OUT_OF_SERVICE"
 
     return {
