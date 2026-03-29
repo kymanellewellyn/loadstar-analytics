@@ -144,11 +144,11 @@ The platform includes a realistic event simulation layer for maintenance data.
 
 ## Streaming vs Batch
 
-### Revenue (Objective 1)
+### Revenue
 - Batch-oriented
 - Daily aggregation acceptable
 
-### Downtime (Objective 3)
+### Downtime
 - Event-driven
 - Near real-time processing
 - Structured Streaming ready
