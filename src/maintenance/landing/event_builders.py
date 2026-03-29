@@ -1,3 +1,16 @@
+# NOTE:
+# This module generates synthetic maintenance event payloads for the Loadstar Analytics project.
+# The goal is not to replay real truck telemetry, but to simulate realistic event-time JSON records
+# that a fleet, telematics, or maintenance system might emit.
+#
+# Reference/master-style attributes such as truck identity and site details come from reference_data.py.
+# Event-state attributes such as weather, sensor readings, truck status, odometer miles, and engine hours
+# are synthetically generated at event creation time to mimic operational event payloads.
+#
+# These records are intentionally synthetic and are designed to support bronze ingestion, silver
+# normalization, and gold dimensional modeling exercises.
+
+
 import random
 import uuid
 from datetime import timedelta, timezone
@@ -17,6 +30,9 @@ def format_timestamp_as_utc(timestamp_value):
     return timestamp_value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+
+# Generates a synthetic weather section for the event payload.
+# Weather condition categories come from reference data, while numeric measurements are simulated.
 def create_weather_section():
     selected_weather = random.choice(WEATHER_CONDITIONS)
 
@@ -30,6 +46,10 @@ def create_weather_section():
     }
 
 
+
+# Generates synthetic sensor readings associated with the selected failure type.
+# They are event-time simulated readings used to mimic
+# what a diagnostic or telematics payload might contain.
 def create_sensor_readings_section(failure_type):
     sensor_readings = {
         "battery_voltage": round(random.uniform(11.8, 14.1), 2),
@@ -48,15 +68,32 @@ def create_sensor_readings_section(failure_type):
     return sensor_readings
 
 
-def create_common_sections():
+
+def get_site_by_id(site_id):
+    for site in SITES:
+        if site["site_id"] == site_id:
+            return site
+    raise ValueError(f"Site not found for site_id={site_id}")
+
+
+
+
+# Builds the producer, truck, and location sections shared across multiple event types.
+# Important:
+# - identity fields (truck_id, vin, make, model, site_id, site_name) are pulled from reference data
+# - operational state fields (status, odometer_miles, engine_hours) are synthetic event-time values
+# - these values are generated to make the raw JSON payloads look realistic for downstream ingestion
+def create_common_sections(producer_system="fleet_telematics_gateway"):
     selected_truck = random.choice(TRUCKS)
-    selected_site = random.choice(SITES)
+
+    selected_site_id = random.choice(selected_truck["allowed_site_ids"])
+    selected_site = get_site_by_id(selected_site_id)
 
     producer_section = {
-        "system": "loadstar_mock_generator",
+        "system": producer_system,
         "region": "us-central",
         "site_id": selected_site["site_id"],
-        "device_id": f"device_{random.randint(1000, 9999)}"
+        "device_id": f"{selected_truck['truck_id']}_device"
     }
 
     truck_section = {
@@ -66,9 +103,22 @@ def create_common_sections():
         "model": selected_truck["model"],
         "year": selected_truck["year"],
         "capacity_tons": selected_truck["capacity_tons"],
+        "home_site_id": selected_truck["home_site_id"],
         "status": "UNKNOWN",
-        "odometer_miles": round(random.uniform(50000, 250000), 1),
-        "engine_hours": round(random.uniform(1500, 12000), 1)
+        "odometer_miles": round(
+            random.uniform(
+                selected_truck["odometer_miles_range"][0],
+                selected_truck["odometer_miles_range"][1]
+            ),
+            1
+        ),
+        "engine_hours": round(
+            random.uniform(
+                selected_truck["engine_hours_range"][0],
+                selected_truck["engine_hours_range"][1]
+            ),
+            1
+        )
     }
 
     location_section = {
@@ -89,7 +139,9 @@ def create_failure_event(base_timestamp):
     selected_failure = random.choice(FAILURE_TYPES)
     selected_vendor = random.choice(VENDORS)
 
-    producer_section, truck_section, location_section = create_common_sections()
+    producer_section, truck_section, location_section = create_common_sections(
+    producer_system="fleet_telematics_gateway"
+)
     truck_section["status"] = "OUT_OF_SERVICE"
 
     return {
@@ -148,7 +200,9 @@ def create_repair_event(base_timestamp):
     selected_failure = random.choice(FAILURE_TYPES)
     selected_vendor = random.choice(VENDORS)
 
-    producer_section, truck_section, location_section = create_common_sections()
+    producer_section, truck_section, location_section = create_common_sections(
+    producer_system="maintenance_management_system"
+)
     truck_section["status"] = "IN_SERVICE"
 
     selected_parts = random.sample(selected_failure["parts_used"], 1)
@@ -213,7 +267,9 @@ def create_repair_event(base_timestamp):
 
 def create_downtime_event(base_timestamp):
     event_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
-    producer_section, truck_section, location_section = create_common_sections()
+    producer_section, truck_section, location_section = create_common_sections(
+    producer_system="fleet_operations_platform"
+)
 
     is_planned = random.choice([True, False])
     event_type = random.choice(["DOWNTIME_START", "DOWNTIME_END"])

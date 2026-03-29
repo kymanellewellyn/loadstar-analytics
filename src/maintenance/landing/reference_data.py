@@ -1,3 +1,8 @@
+# Reference data used by the synthetic maintenance event generator.
+# These records represent reusable master-style attributes and lookup values that are used
+# to construct simulated raw JSON maintenance events.
+
+
 TRUCKS = [
     {
         "truck_id": "TRK_1001",
@@ -5,7 +10,11 @@ TRUCKS = [
         "make": "Kenworth",
         "model": "T880",
         "year": 2022,
-        "capacity_tons": 18.5
+        "capacity_tons": 18.5,
+        "home_site_id": "SITE_DAL_01",
+        "allowed_site_ids": ["SITE_DAL_01", "SITE_FTW_01"],
+        "starting_odometer_miles": 121450.0,
+        "starting_engine_hours": 6150.0
     },
     {
         "truck_id": "TRK_1002",
@@ -13,7 +22,11 @@ TRUCKS = [
         "make": "Peterbilt",
         "model": "567",
         "year": 2021,
-        "capacity_tons": 17.0
+        "capacity_tons": 17.0,
+        "home_site_id": "SITE_FTW_01",
+        "allowed_site_ids": ["SITE_FTW_01"],
+        "starting_odometer_miles": 148220.0,
+        "starting_engine_hours": 7425.0
     },
     {
         "truck_id": "TRK_1003",
@@ -21,7 +34,11 @@ TRUCKS = [
         "make": "Freightliner",
         "model": "122SD",
         "year": 2023,
-        "capacity_tons": 19.0
+        "capacity_tons": 19.0,
+        "home_site_id": "SITE_DAL_01",
+        "allowed_site_ids": ["SITE_DAL_01", "SITE_FTW_01"],
+        "starting_odometer_miles": 84210.0,
+        "starting_engine_hours": 3825.0
     }
 ]
 

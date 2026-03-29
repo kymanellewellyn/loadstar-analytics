@@ -10,7 +10,21 @@ from src.maintenance.landing.event_builders import (
 )
 
 
+# NOTE:
+# This module is the raw-event generation and landing layer for the Loadstar Analytics project.
+# It does not define truck reference data or event-building logic itself.
+# Instead, it imports reusable event builder functions and writes the generated
+# synthetic JSON events into the maintenance raw volume for downstream bronze ingestion.
+
+
 def create_raw_events(number_of_events, random_seed=42):
+    """
+    Generate a list of synthetic raw maintenance events.
+
+    Each event is created by randomly selecting one of the supported event builder
+    functions (failure, repair, or downtime). The timestamps are anchored from a
+    base timestamp set to 7 days before the current UTC time.
+    """
     random.seed(random_seed)
 
     base_timestamp = datetime.now(timezone.utc) - timedelta(days=7)
@@ -36,6 +50,17 @@ def write_raw_events_to_volume(
     write_mode="append",
     random_seed=42
 ):
+    """
+    Generate synthetic raw events and write them to the maintenance raw volume
+    as JSON lines text files.
+
+    Parameters:
+        spark: active Spark session
+        number_of_events: number of events to generate
+        output_folder: folder name under the maintenance raw volume
+        write_mode: append or overwrite
+        random_seed: seed for reproducible synthetic data generation
+    """
     output_path = get_volume_path("maintenance", output_folder)
 
     raw_events = create_raw_events(
@@ -43,7 +68,9 @@ def write_raw_events_to_volume(
         random_seed=random_seed
     )
 
-    json_lines = [(json.dumps(raw_event),) for raw_event in raw_events]
+    json_lines = []
+    for raw_event in raw_events:
+        json_lines.append((json.dumps(raw_event),))
 
     raw_events_dataframe = spark.createDataFrame(json_lines, ["value"])
 
