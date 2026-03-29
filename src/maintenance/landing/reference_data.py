@@ -1,6 +1,5 @@
-# Reference data used by the synthetic maintenance event generator.
-# These records represent reusable master-style attributes and lookup values that are used
-# to construct simulated raw JSON maintenance events.
+
+# These records represent attributes and lookup values that are used to construct simulated raw JSON maintenance events.
 
 
 TRUCKS = [
@@ -82,7 +81,7 @@ FAILURE_TYPES = [
         "failure_code": "HYD_214",
         "symptoms": ["slow_bed_raise", "pressure_drop", "fluid_leak_detected"],
         "parts_used": [
-            {"part_id": "PART_4501", "part_name": "Hydraulic Hose", "unit_cost": 145.75},
+            {"part_id": "PART_4501", "part_name": "Hydraulic Hose", "unit_cost": 145.75}, # parts for fixing
             {"part_id": "PART_7750", "part_name": "Hydraulic Seal Kit", "unit_cost": 89.50}
         ]
     },
