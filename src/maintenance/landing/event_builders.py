@@ -20,6 +20,7 @@ from src.maintenance.landing.reference_data import (
 
 
 def format_timestamp_as_utc(timestamp_value):
+    # Converts a datetime object to UTC ISO 8601 string format
     return timestamp_value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -48,6 +49,7 @@ def create_sensor_readings_section(failure_type):
         "engine_temp_f": round(random.uniform(180.0, 240.0), 1)
     }
 
+    # Add failure-type specific sensor readings
     if failure_type == "HYDRAULIC":
         sensor_readings["hydraulic_pressure_psi"] = round(random.uniform(900.0, 2200.0), 1)
     elif failure_type == "BRAKE":
@@ -62,6 +64,7 @@ def create_sensor_readings_section(failure_type):
 
 
 def get_site_by_id(site_id):
+    # Looks up a site in SITES reference data by site_id
     for site in SITES:
         if site["site_id"] == site_id:
             return site
@@ -78,6 +81,7 @@ def get_site_by_id(site_id):
 def create_common_sections(producer_system="fleet_telematics_gateway"):
     selected_truck = random.choice(TRUCKS)
 
+    # Select a site from the truck's allowed sites
     selected_site_id = random.choice(selected_truck["allowed_site_ids"])
     selected_site = get_site_by_id(selected_site_id)
 
@@ -97,6 +101,7 @@ def create_common_sections(producer_system="fleet_telematics_gateway"):
         "capacity_tons": selected_truck["capacity_tons"],
         "home_site_id": selected_truck["home_site_id"],
         "status": "UNKNOWN",
+        # Generate odometer and engine hours within truck's range
         "odometer_miles": round(
             random.uniform(
                 selected_truck["odometer_miles_range"][0],
@@ -127,6 +132,7 @@ def create_common_sections(producer_system="fleet_telematics_gateway"):
 
 
 def create_failure_event(base_timestamp):
+    # Simulate event timestamp within a week from base_timestamp
     event_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
     selected_failure = random.choice(FAILURE_TYPES)
     selected_vendor = random.choice(VENDORS)
@@ -169,6 +175,7 @@ def create_failure_event(base_timestamp):
         "service": {
             "vendor_id": selected_vendor["vendor_id"],
             "vendor_name": selected_vendor["vendor_name"],
+            # Randomly assign 1 or 2 technicians
             "technicians": random.sample(TECHNICIANS, random.randint(1, 2)),
             "parts_used": []
         },
@@ -182,6 +189,7 @@ def create_failure_event(base_timestamp):
 
 
 def create_repair_event(base_timestamp):
+    # Simulate downtime start and repair end timestamps
     downtime_start_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
     repair_end_timestamp = downtime_start_timestamp + timedelta(
         hours=random.randint(1, 8),
@@ -196,6 +204,7 @@ def create_repair_event(base_timestamp):
 )
     truck_section["status"] = "IN_SERVICE"
 
+    # Select parts used for repair
     selected_parts = random.sample(selected_failure["parts_used"], 1)
     parts_used = []
 
@@ -244,6 +253,7 @@ def create_repair_event(base_timestamp):
         "service": {
             "vendor_id": selected_vendor["vendor_id"],
             "vendor_name": selected_vendor["vendor_name"],
+            # Randomly assign 1-3 technicians
             "technicians": random.sample(TECHNICIANS, random.randint(1, 3)),
             "parts_used": parts_used
         },
@@ -257,6 +267,7 @@ def create_repair_event(base_timestamp):
 
 
 def create_downtime_event(base_timestamp):
+    # Simulate downtime event timestamp within a week from base_timestamp
     event_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
     producer_section, truck_section, location_section = create_common_sections(
     producer_system="fleet_operations_platform"
@@ -265,6 +276,7 @@ def create_downtime_event(base_timestamp):
     is_planned = random.choice([True, False])
     event_type = random.choice(["DOWNTIME_START", "DOWNTIME_END"])
 
+    # Set truck status based on planned/unplanned downtime
     if is_planned:
         truck_section["status"] = "SCHEDULED_MAINTENANCE"
     else:
@@ -272,6 +284,7 @@ def create_downtime_event(base_timestamp):
 
     downtime_end_timestamp = None
     if event_type == "DOWNTIME_END":
+        # If downtime ends, simulate end timestamp a few hours after start
         downtime_end_timestamp = format_timestamp_as_utc(
             event_timestamp + timedelta(hours=random.randint(1, 4))
         )

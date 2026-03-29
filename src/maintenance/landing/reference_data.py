@@ -1,7 +1,7 @@
 
 # These records represent attributes and lookup values that are used to construct simulated raw JSON maintenance events.
 
-
+# List of trucks with their attributes and operational constraints
 TRUCKS = [
     {
         "truck_id": "TRK_1001",
@@ -11,9 +11,9 @@ TRUCKS = [
         "year": 2022,
         "capacity_tons": 18.5,
         "home_site_id": "SITE_DAL_01",
-        "allowed_site_ids": ["SITE_DAL_01", "SITE_FTW_01"],
-        "starting_odometer_miles": 121450.0,
-        "starting_engine_hours": 6150.0
+        "allowed_site_ids": ["SITE_DAL_01", "SITE_FTW_01"],  # Sites where truck can operate
+        "odometer_miles_range": [110000.0, 145000.0],
+        "engine_hours_range": [5500.0, 7200.0]
     },
     {
         "truck_id": "TRK_1002",
@@ -24,8 +24,8 @@ TRUCKS = [
         "capacity_tons": 17.0,
         "home_site_id": "SITE_FTW_01",
         "allowed_site_ids": ["SITE_FTW_01"],
-        "starting_odometer_miles": 148220.0,
-        "starting_engine_hours": 7425.0
+        "odometer_miles_range": [110000.0, 145000.0],
+        "engine_hours_range": [5500.0, 7200.0]
     },
     {
         "truck_id": "TRK_1003",
@@ -36,11 +36,12 @@ TRUCKS = [
         "capacity_tons": 19.0,
         "home_site_id": "SITE_DAL_01",
         "allowed_site_ids": ["SITE_DAL_01", "SITE_FTW_01"],
-        "starting_odometer_miles": 84210.0,
-        "starting_engine_hours": 3825.0
+        "odometer_miles_range": [110000.0, 145000.0],
+        "engine_hours_range": [5500.0, 7200.0]
     }
 ]
 
+# List of sites with location and zone information
 SITES = [
     {
         "site_id": "SITE_DAL_01",
@@ -49,7 +50,7 @@ SITES = [
         "longitude": -96.7970,
         "city": "Dallas",
         "state": "TX",
-        "zones": ["yard_entry", "maintenance_bay", "repair_bay_1", "repair_bay_2"]
+        "zones": ["yard_entry", "maintenance_bay", "repair_bay_1", "repair_bay_2"]  # Areas within the site
     },
     {
         "site_id": "SITE_FTW_01",
@@ -62,12 +63,14 @@ SITES = [
     }
 ]
 
+# List of vendors available for maintenance
 VENDORS = [
     {"vendor_id": "VEND_001", "vendor_name": "Lone Star Fleet Repair"},
     {"vendor_id": "VEND_002", "vendor_name": "Texas Heavy Duty Service"},
     {"vendor_id": "VEND_003", "vendor_name": "DFW Truck & Hydraulics"}
 ]
 
+# List of technicians with their roles
 TECHNICIANS = [
     {"technician_id": "TECH_1001", "name": "Miguel Torres", "role": "Lead Technician"},
     {"technician_id": "TECH_1002", "name": "Chris Walker", "role": "Field Technician"},
@@ -75,13 +78,14 @@ TECHNICIANS = [
     {"technician_id": "TECH_1004", "name": "Dana Brooks", "role": "Brake Specialist"}
 ]
 
+# Failure definitions with symptoms and parts used for repairs
 FAILURE_TYPES = [
     {
         "failure_type": "HYDRAULIC",
         "failure_code": "HYD_214",
         "symptoms": ["slow_bed_raise", "pressure_drop", "fluid_leak_detected"],
         "parts_used": [
-            {"part_id": "PART_4501", "part_name": "Hydraulic Hose", "unit_cost": 145.75}, # parts for fixing
+            {"part_id": "PART_4501", "part_name": "Hydraulic Hose", "unit_cost": 145.75}, 
             {"part_id": "PART_7750", "part_name": "Hydraulic Seal Kit", "unit_cost": 89.50}
         ]
     },
@@ -113,6 +117,7 @@ FAILURE_TYPES = [
     }
 ]
 
+# Weather conditions with severity levels for event simulation
 WEATHER_CONDITIONS = [
     {"condition": "CLEAR", "severity_level": "LOW"},
     {"condition": "WINDY", "severity_level": "MEDIUM"},
