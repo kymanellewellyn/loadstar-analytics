@@ -88,15 +88,15 @@ The platform uses a dimensional model aligned to business KPIs.
 
 #### Revenue Domain
 
-- `fact_trip` → trip-level revenue and cost  
-- `fact_truck_day` → daily truck performance (aggregated)  
-- `fact_job` → job-level profitability  
+- `fact_trip:` trip-level revenue and cost  
+- `fact_truck_day:` daily truck performance (aggregated)  
+- `fact_job:` job-level profitability  
 
 #### Maintenance Domain
 
-- `fact_truck_downtime` → downtime tracking  
-- `fact_failure_event` → failure events  
-- `fact_repair_event` → repair operations  
+- `fact_truck_downtime:` downtime tracking  
+- `fact_failure_event:` failure events  
+- `fact_repair_event:` repair operations  
 
 ---
 
@@ -109,7 +109,7 @@ The platform uses a dimensional model aligned to business KPIs.
 - Mean Time To Repair (MTTR)  
 - Unplanned downtime hours  
 
-Derived metrics (not stored):
+Derived metrics:
 - Revenue per load capacity  
 - Cost per mile  
 - Margin percentages  
@@ -130,9 +130,9 @@ The platform includes a realistic event simulation layer for maintenance data.
 
 ### Design
 
-- `reference_data.py` → small, controlled entity pools (trucks, sites, vendors)
-- `event_builders.py` → event construction logic
-- `generate_truck_maintenance_events.py` → orchestration + ingestion
+- `reference_data.py:` small, controlled entity pools (trucks, sites, vendors)
+- `event_builders.py:` event construction logic
+- `generate_truck_maintenance_events.py:` orchestration + ingestion
 
 ### Why this matters
 
