@@ -12,17 +12,24 @@ from src.maintenance.landing.event_builders import (
     create_repair_event,
 )
 
-def create_raw_events(number_of_events, random_seed=42):
+def create_raw_events(number_of_events, random_seed=42, base_timestamp=None):
     """
     Generate a list of synthetic raw maintenance events.
 
     Each event is created by randomly selecting one of the supported event builder
     functions (failure, repair, or downtime). The timestamps are anchored from a
     base timestamp set to 7 days before the current UTC time.
+    
+    Parameters:
+        number_of_events: number of events to generate
+        random_seed: seed for reproducible random selection
+        base_timestamp: optional base datetime for event timestamps (defaults to now - 7 days)
     """
     random.seed(random_seed)
 
-    base_timestamp = datetime.now(timezone.utc) - timedelta(days=7)
+    if base_timestamp is None:
+        base_timestamp = datetime.now(timezone.utc) - timedelta(days=7)
+    
     raw_events = []
 
     event_builders = [
@@ -83,10 +90,11 @@ def write_raw_events_to_volume(
     print(f"Wrote {number_of_events} raw events to: {output_path}")
 
 # Entry point: generate and write events to volume
-write_raw_events_to_volume(
-    spark=spark,
-    number_of_events=250,
-    output_folder="events",
-    write_mode="append",
-    random_seed=42
-)
+if __name__ == "__main__":
+    write_raw_events_to_volume(
+        spark=spark,
+        number_of_events=250,
+        output_folder="events",
+        write_mode="append",
+        random_seed=42
+    )
