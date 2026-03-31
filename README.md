@@ -168,7 +168,7 @@ Implemented using Unity Catalog:
 
 ---
 
-## AI Layer (Planned)
+## AI Layer 
 
 The platform is designed to support AI agents:
 
