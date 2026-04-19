@@ -24,3 +24,5 @@ data/landing/**/raw_files/
 
 # Databricks exports (if any)
 *.dbc
+# Personal learning notes (not for version control)
+notes/
