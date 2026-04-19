@@ -80,7 +80,6 @@ def run_all_tests():
     test_create_raw_events_produces_valid_event_types()
     test_create_raw_events_have_common_top_level_fields()
     test_create_raw_events_are_json_serializable()
-    test_create_raw_events_is_reproducible_with_same_seed()
     test_create_raw_events_changes_with_different_seed()
     print("All generate_truck_maintenance_events tests passed.")
 

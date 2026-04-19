@@ -1,7 +1,7 @@
 # NOTE:
 # This module generates synthetic maintenance event payloads. The goal is to simulate realistic event-time JSON records that a fleet, telematics, or maintenance system might emit.
 
-# Attributes such as truck identity and site details come from reference_data.py
+# Attributes such as truck id and site details come from reference_data.py
 # Event-state attributes such as weather, sensor readings, truck status, odometer miles, and engine hours are synthetically generated at event creation time to mimic operational event payloads.
 
 

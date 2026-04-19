@@ -18,12 +18,12 @@ def create_raw_events(number_of_events, random_seed=42, base_timestamp=None):
 
     Each event is created by randomly selecting one of the supported event builder
     functions (failure, repair, or downtime). The timestamps are anchored from a
-    base timestamp set to 7 days before the current UTC time.
-    
+    base timestamp set to 7 days before the current UTC time (or a provided timestamp).
+
     Parameters:
-        number_of_events: number of events to generate
-        random_seed: seed for reproducible random selection
-        base_timestamp: optional base datetime for event timestamps (defaults to now - 7 days)
+        number_of_events: Number of events to generate
+        random_seed: Seed for reproducible random event selection
+        base_timestamp: Optional fixed timestamp for event generation (defaults to now - 7 days)
     """
     random.seed(random_seed)
 
@@ -46,7 +46,6 @@ def create_raw_events(number_of_events, random_seed=42, base_timestamp=None):
     return raw_events
 
 def write_raw_events_to_volume(
-    spark,
     number_of_events=250,
     output_folder="events",
     write_mode="append",
@@ -57,7 +56,6 @@ def write_raw_events_to_volume(
     as JSON lines text files.
 
     Parameters:
-        spark: active Spark session
         number_of_events: number of events to generate
         output_folder: folder name under the maintenance raw volume
         write_mode: append or overwrite
@@ -65,11 +63,13 @@ def write_raw_events_to_volume(
     """
     output_path = get_volume_path("maintenance", output_folder)
 
+    print(f"Generating {number_of_events} synthetic raw events with random_seed={random_seed}...")
     # Generate synthetic events
     raw_events = create_raw_events(
         number_of_events=number_of_events,
         random_seed=random_seed
     )
+    print(f"Generated {len(raw_events)} events.")
 
     # Convert events to JSON lines format for Spark ingestion
     json_lines = []
@@ -78,6 +78,7 @@ def write_raw_events_to_volume(
 
     # Create Spark DataFrame for writing
     raw_events_dataframe = spark.createDataFrame(json_lines, ["value"])
+    print(f"Writing events to volume path: {output_path} with mode: {write_mode}")
 
     # Write DataFrame as text files to the specified volume path
     (
@@ -92,7 +93,6 @@ def write_raw_events_to_volume(
 # Entry point: generate and write events to volume
 if __name__ == "__main__":
     write_raw_events_to_volume(
-        spark=spark,
         number_of_events=250,
         output_folder="events",
         write_mode="append",
