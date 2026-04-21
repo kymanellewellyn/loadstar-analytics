@@ -83,6 +83,7 @@ DIAGNOSTICS_SCHEMA = StructType([
 # Failure event schema: describes failure details and diagnostics (nullable)
 FAILURE_SCHEMA = StructType([
     StructField("failure_id", StringType(), True),
+    StructField("failure_timestamp", StringType(), True),  # NEW: Single point in time when failure occurred
     StructField("failure_type", StringType(), True),
     StructField("failure_code", StringType(), True),
     StructField("severity", StringType(), True),
@@ -90,23 +91,18 @@ FAILURE_SCHEMA = StructType([
     StructField("diagnostics", DIAGNOSTICS_SCHEMA, True),
 ])
 
-# Repair event schema: describes repair details (nullable)
+# Repair event schema: describes repair details with failure linkage (nullable)
 REPAIR_SCHEMA = StructType([
     StructField("repair_id", StringType(), True),
+    StructField("addresses_failure_id", StringType(), True),  # NEW: Links to failure_id
     StructField("repair_status", StringType(), True),
     StructField("repair_category", StringType(), True),
     StructField("labor_hours", DoubleType(), True),
-    StructField("completion_timestamp", StringType(), True),  # Will be parsed to timestamp later
+    StructField("repair_start_timestamp", StringType(), True),  # NEW: When repair work began
+    StructField("repair_end_timestamp", StringType(), True),    # RENAMED from completion_timestamp
 ])
 
-# Downtime event schema: describes downtime details (nullable)
-DOWNTIME_SCHEMA = StructType([
-    StructField("downtime_id", StringType(), True),
-    StructField("start_timestamp", StringType(), True),  # Will be parsed to timestamp later
-    StructField("end_timestamp", StringType(), True),
-    StructField("reason", StringType(), True),
-    StructField("is_planned", BooleanType(), True),
-])
+# DOWNTIME_SCHEMA REMOVED - downtime will be derived in gold layer from failure → repair
 
 # Technician schema: describes technician details (nullable)
 TECHNICIAN_SCHEMA = StructType([
@@ -138,6 +134,7 @@ NOTES_SCHEMA = StructType([
     StructField("maintenance_note", StringType(), True),
 ])
 
+
 # ==============================================================================
 # BRONZE LAYER: COMPLETE EVENT SCHEMA
 # ==============================================================================
@@ -159,7 +156,7 @@ MAINTENANCE_EVENT_SCHEMA = StructType([
     # Event-specific sections (NULLABLE - depends on event_type)
     StructField("failure", FAILURE_SCHEMA, True),
     StructField("repair", REPAIR_SCHEMA, True),
-    StructField("downtime", DOWNTIME_SCHEMA, True),
+    # REMOVED: StructField("downtime", DOWNTIME_SCHEMA, True) - downtime derived in gold
     StructField("service", SERVICE_SCHEMA, True),
     
     # Additional metadata (NULLABLE)
