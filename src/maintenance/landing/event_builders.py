@@ -78,8 +78,9 @@ def get_site_by_id(site_id):
 # - identity fields (truck_id, vin, make, model, site_id, site_name) are pulled from reference data
 # - operational state fields (status, odometer_miles, engine_hours) are synthetic event-time values
 # - these values are generated to make the raw JSON payloads look realistic for downstream ingestion
-def create_common_sections(producer_system="fleet_telematics_gateway"):
-    selected_truck = random.choice(TRUCKS)
+def create_common_sections(producer_system="fleet_telematics_gateway", selected_truck=None):
+    if selected_truck is None:
+        selected_truck = random.choice(TRUCKS)
 
     # Select a site from the truck's allowed sites
     selected_site_id = random.choice(selected_truck["allowed_site_ids"])
@@ -128,20 +129,39 @@ def create_common_sections(producer_system="fleet_telematics_gateway"):
         "state": selected_site["state"]
     }
 
-    return producer_section, truck_section, location_section
+    return producer_section, truck_section, location_section, selected_truck
 
 
-def create_failure_event(base_timestamp):
+def create_failure_event(base_timestamp, failure_id=None):
+    """
+    Generate a FAILURE event with metadata for downstream repair generation.
+    
+    Args:
+        base_timestamp: Base time anchor for event generation
+        failure_id: Optional pre-generated failure_id (for linkage)
+    
+    Returns:
+        tuple: (failure_event_dict, failure_metadata_dict)
+            - failure_event_dict: The complete JSON event payload
+            - failure_metadata_dict: Metadata needed to generate linked repair
+    """
     # Simulate event timestamp within a week from base_timestamp
     event_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
+    
+    # Generate failure_id if not provided
+    if failure_id is None:
+        failure_id = f"failure_{uuid.uuid4().hex[:10]}"
+    
     selected_failure = random.choice(FAILURE_TYPES)
     selected_vendor = random.choice(VENDORS)
 
-    producer_section, truck_section, location_section = create_common_sections(producer_system="fleet_telematics_gateway")
+    producer_section, truck_section, location_section, selected_truck = create_common_sections(
+        producer_system="fleet_telematics_gateway"
+    )
     
     truck_section["status"] = "OUT_OF_SERVICE"
 
-    return {
+    failure_event = {
         "event_id": f"event_{uuid.uuid4().hex}",
         "event_type": "FAILURE",
         "event_version": "1.0",
@@ -151,7 +171,8 @@ def create_failure_event(base_timestamp):
         "location": location_section,
         "weather": create_weather_section(),
         "failure": {
-            "failure_id": f"failure_{uuid.uuid4().hex[:10]}",
+            "failure_id": failure_id,
+            "failure_timestamp": format_timestamp_as_utc(event_timestamp),  # NEW: Point in time when failure occurred
             "failure_type": selected_failure["failure_type"],
             "failure_code": selected_failure["failure_code"],
             "severity": random.choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
@@ -165,13 +186,7 @@ def create_failure_event(base_timestamp):
             }
         },
         "repair": None,
-        "downtime": {
-            "downtime_id": f"downtime_{uuid.uuid4().hex[:10]}",
-            "start_timestamp": format_timestamp_as_utc(event_timestamp),
-            "end_timestamp": None,
-            "reason": "UNPLANNED_FAILURE",
-            "is_planned": False
-        },
+        # REMOVED: downtime section - will be derived in gold layer
         "service": {
             "vendor_id": selected_vendor["vendor_id"],
             "vendor_name": selected_vendor["vendor_name"],
@@ -186,26 +201,57 @@ def create_failure_event(base_timestamp):
         },
         "tags": ["maintenance", "failure", selected_failure["failure_type"].lower()]
     }
+    
+    # Return metadata needed to generate linked repair event
+    failure_metadata = {
+        "failure_id": failure_id,
+        "failure_timestamp": event_timestamp,
+        "failure_type": selected_failure["failure_type"],
+        "failure_code": selected_failure["failure_code"],
+        "truck": selected_truck,
+        "selected_failure_ref": selected_failure,  # Keep reference for parts selection
+    }
+    
+    return failure_event, failure_metadata
 
 
-def create_repair_event(base_timestamp):
-    # Simulate downtime start and repair end timestamps
-    downtime_start_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
-    repair_end_timestamp = downtime_start_timestamp + timedelta(
-        hours=random.randint(1, 8),
+def create_repair_event_for_failure(failure_metadata, base_timestamp):
+    """
+    Generate a REPAIR event that addresses a specific FAILURE.
+    
+    Args:
+        failure_metadata: Dict containing failure_id, failure_timestamp, failure_type, truck details
+        base_timestamp: Base time anchor (for reference)
+    
+    Returns:
+        repair_event_dict: The complete JSON event payload
+    """
+    failure_timestamp = failure_metadata["failure_timestamp"]
+    failure_id = failure_metadata["failure_id"]
+    failure_type = failure_metadata["failure_type"]
+    selected_truck = failure_metadata["truck"]
+    selected_failure_ref = failure_metadata["selected_failure_ref"]
+    
+    # Repair starts 1-24 hours after failure (wait time for diagnosis, parts, mechanic)
+    repair_start_timestamp = failure_timestamp + timedelta(
+        hours=random.randint(1, 24),
         minutes=random.randint(0, 59)
     )
-
-    selected_failure = random.choice(FAILURE_TYPES)
+    
+    # Repair duration: 1-8 hours
+    labor_hours = round(random.uniform(1.0, 8.0), 1)
+    repair_end_timestamp = repair_start_timestamp + timedelta(hours=labor_hours)
+    
     selected_vendor = random.choice(VENDORS)
 
-    producer_section, truck_section, location_section = create_common_sections(
-    producer_system="maintenance_management_system"
-)
+    producer_section, truck_section, location_section, _ = create_common_sections(
+        producer_system="maintenance_management_system",
+        selected_truck=selected_truck  # Use same truck as failure
+    )
     truck_section["status"] = "IN_SERVICE"
 
     # Select parts used for repair
-    selected_parts = random.sample(selected_failure["parts_used"], 1)
+    selected_parts = random.sample(selected_failure_ref["parts_used"], min(1, len(selected_failure_ref["parts_used"])))
     parts_used = []
 
     for selected_part in selected_parts:
@@ -220,35 +266,20 @@ def create_repair_event(base_timestamp):
         "event_id": f"event_{uuid.uuid4().hex}",
         "event_type": "REPAIR",
         "event_version": "1.0",
-        "event_timestamp": format_timestamp_as_utc(repair_end_timestamp),
+        "event_timestamp": format_timestamp_as_utc(repair_end_timestamp),  # Event time = when repair completed
         "producer": producer_section,
         "truck": truck_section,
         "location": location_section,
         "weather": create_weather_section(),
-        "failure": {
-            "failure_id": f"failure_{uuid.uuid4().hex[:10]}",
-            "failure_type": selected_failure["failure_type"],
-            "failure_code": selected_failure["failure_code"],
-            "severity": random.choice(["MEDIUM", "HIGH", "CRITICAL"]),
-            "symptoms": selected_failure["symptoms"],
-            "diagnostics": {
-                "fault_codes": [selected_failure["failure_code"]],
-                "sensor_readings": create_sensor_readings_section(selected_failure["failure_type"])
-            }
-        },
+        "failure": None,  # No failure section in repair events
         "repair": {
             "repair_id": f"repair_{uuid.uuid4().hex[:10]}",
+            "addresses_failure_id": failure_id,  # NEW: Links to actual failure event
             "repair_status": "COMPLETED",
-            "repair_category": f"{selected_failure['failure_type']}_REPAIR",
-            "labor_hours": round(random.uniform(1.0, 8.0), 1),
-            "completion_timestamp": format_timestamp_as_utc(repair_end_timestamp)
-        },
-        "downtime": {
-            "downtime_id": f"downtime_{uuid.uuid4().hex[:10]}",
-            "start_timestamp": format_timestamp_as_utc(downtime_start_timestamp),
-            "end_timestamp": format_timestamp_as_utc(repair_end_timestamp),
-            "reason": "UNPLANNED_FAILURE",
-            "is_planned": False
+            "repair_category": f"{failure_type}_REPAIR",
+            "labor_hours": labor_hours,
+            "repair_start_timestamp": format_timestamp_as_utc(repair_start_timestamp),  # NEW: When repair work began
+            "repair_end_timestamp": format_timestamp_as_utc(repair_end_timestamp),      # NEW: When repair completed
         },
         "service": {
             "vendor_id": selected_vendor["vendor_id"],
@@ -262,61 +293,8 @@ def create_repair_event(base_timestamp):
             "dispatcher_note": None,
             "maintenance_note": "Repair completed and truck returned to service."
         },
-        "tags": ["maintenance", "repair", selected_failure["failure_type"].lower()]
+        "tags": ["maintenance", "repair", failure_type.lower()]
     }
 
 
-def create_downtime_event(base_timestamp):
-    # Simulate downtime event timestamp within a week from base_timestamp
-    event_timestamp = base_timestamp + timedelta(minutes=random.randint(0, 10080))
-    producer_section, truck_section, location_section = create_common_sections(
-    producer_system="fleet_operations_platform"
-)
-
-    is_planned = random.choice([True, False])
-    event_type = random.choice(["DOWNTIME_START", "DOWNTIME_END"])
-
-    # Set truck status based on planned/unplanned downtime
-    if is_planned:
-        truck_section["status"] = "SCHEDULED_MAINTENANCE"
-    else:
-        truck_section["status"] = "OUT_OF_SERVICE"
-
-    downtime_end_timestamp = None
-    if event_type == "DOWNTIME_END":
-        # If downtime ends, simulate end timestamp a few hours after start
-        downtime_end_timestamp = format_timestamp_as_utc(
-            event_timestamp + timedelta(hours=random.randint(1, 4))
-        )
-
-    return {
-        "event_id": f"event_{uuid.uuid4().hex}",
-        "event_type": event_type,
-        "event_version": "1.0",
-        "event_timestamp": format_timestamp_as_utc(event_timestamp),
-        "producer": producer_section,
-        "truck": truck_section,
-        "location": location_section,
-        "weather": create_weather_section(),
-        "failure": None,
-        "repair": None,
-        "downtime": {
-            "downtime_id": f"downtime_{uuid.uuid4().hex[:10]}",
-            "start_timestamp": format_timestamp_as_utc(event_timestamp),
-            "end_timestamp": downtime_end_timestamp,
-            "reason": random.choice(["UNPLANNED_FAILURE", "SCHEDULED_SERVICE", "INSPECTION_HOLD"]),
-            "is_planned": is_planned
-        },
-        "service": {
-            "vendor_id": None,
-            "vendor_name": None,
-            "technicians": [],
-            "parts_used": []
-        },
-        "notes": {
-            "driver_note": None,
-            "dispatcher_note": "Downtime recorded by fleet operations.",
-            "maintenance_note": None
-        },
-        "tags": ["maintenance", "downtime"]
-    }
+# REMOVED: create_downtime_event() - downtime will be derived in gold layer from failure → repair linkage

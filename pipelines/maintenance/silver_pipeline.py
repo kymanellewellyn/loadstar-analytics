@@ -23,7 +23,7 @@ BRONZE_TABLE = domain_config["bronze_table"]
 
 @dlt.table(
     name="maintenance_events_clean",
-    comment="Silver layer: Cleaned and flattened maintenance events - single source of truth for all event types",
+    comment="Silver layer: Cleaned and flattened maintenance events - single source of truth for FAILURE and REPAIR events",
     table_properties={
         "quality": "silver",
         "pipelines.autoOptimize.managed": "true"
@@ -37,7 +37,7 @@ BRONZE_TABLE = domain_config["bronze_table"]
 # Track violations for event-specific data (don't drop, just monitor)
 @dlt.expect("failure_has_data", "event_type != 'FAILURE' OR failure IS NOT NULL")
 @dlt.expect("repair_has_data", "event_type != 'REPAIR' OR repair IS NOT NULL")
-@dlt.expect("downtime_has_data", "event_type != 'DOWNTIME' OR downtime IS NOT NULL")
+# REMOVED: downtime expectation - downtime will be derived in gold layer
 def maintenance_events_clean():
     """
     Transform bronze data into analytics-ready silver table.
@@ -47,14 +47,14 @@ def maintenance_events_clean():
     - Flatten nested structures (truck.*, location.*, producer.*, weather.*)
     - Deduplicate events by event_id (keep latest by ingestion timestamp)
     - Apply DLT expectations for data quality validation
-    - Preserve event-specific data (failure, repair, downtime, service)
+    - Preserve event-specific data (failure, repair, service)
     
     This table serves as the foundation for specialized silver tables
-    (failure_events, repair_events, etc.) which will filter from this.
+    (failure_events, repair_events) which will filter from this.
     """
     # Read from bronze and apply transformations
     df = (
-        dlt.read_stream(BRONZE_TABLE)
+        dlt.read(BRONZE_TABLE)
             # Parse timestamp from string to proper timestamp type
             .withColumn("event_timestamp", to_timestamp(col("event_timestamp")))
             
@@ -96,7 +96,7 @@ def maintenance_events_clean():
             # Keep nested event-specific structures (will be used by specialized tables)
             .withColumn("failure", col("failure"))
             .withColumn("repair", col("repair"))
-            .withColumn("downtime", col("downtime"))
+            # REMOVED: downtime column - no longer in schema
             .withColumn("service", col("service"))
             .withColumn("notes", col("notes"))
             .withColumn("tags", col("tags"))
@@ -154,7 +154,7 @@ def maintenance_events_clean():
         # Event-specific nested structures (kept nested)
         col("failure"),
         col("repair"),
-        col("downtime"),
+        # REMOVED: downtime column
         col("service"),
         col("notes"),
         col("tags"),
@@ -177,10 +177,9 @@ def maintenance_events_clean():
         "pipelines.autoOptimize.managed": "true"
     }
 )
-@dlt.expect_or_drop("is_failure_event", "event_type = 'FAILURE'")
-@dlt.expect_or_drop("has_failure_details", "failure IS NOT NULL")
-@dlt.expect("has_failure_type", "failure.failure_type IS NOT NULL")
-@dlt.expect("has_severity", "failure.severity IS NOT NULL")
+@dlt.expect_or_drop("has_failure_details", "failure_id IS NOT NULL")
+@dlt.expect("has_failure_type", "failure_type IS NOT NULL")
+@dlt.expect("has_severity", "severity IS NOT NULL")
 def failure_events():
     """
     Specialized table for FAILURE events with flattened diagnostics and sensor data.
@@ -195,205 +194,140 @@ def failure_events():
     - Failure pattern analysis (which failure types are most common?)
     - Correlation with weather/location (do failures increase in cold weather?)
     - Truck reliability scoring (which trucks fail most often?)
-    - Predictive maintenance models (features for ML)
+    - Predictive maintenance modeling (predict next failure)
     """
     return (
         dlt.read_stream("maintenance_events_clean")
-            .filter(col("event_type") == "FAILURE")
-            .select(
-                # Core event metadata
-                col("event_id"),
-                col("event_type"),
-                col("event_timestamp"),
-                
-                # Truck context
-                col("truck_id"),
-                col("truck_vin"),
-                col("truck_make"),
-                col("truck_model"),
-                col("truck_year"),
-                col("truck_odometer_miles"),
-                col("truck_engine_hours"),
-                col("truck_status"),
-                
-                # Location context
-                col("location_site_id"),
-                col("location_site_name"),
-                col("location_city"),
-                col("location_state"),
-                col("location_latitude"),
-                col("location_longitude"),
-                
-                # Weather context
-                col("weather_condition"),
-                col("weather_temperature_f"),
-                col("weather_severity_level"),
-                
-                # Flatten failure-specific data
-                col("failure.failure_id").alias("failure_id"),
-                col("failure.failure_type").alias("failure_type"),
-                col("failure.failure_code").alias("failure_code"),
-                col("failure.severity").alias("severity"),
-                col("failure.symptoms").alias("symptoms"),
-                
-                # Flatten diagnostics (nested within failure)
-                col("failure.diagnostics.fault_codes").alias("fault_codes"),
-                col("failure.diagnostics.sensor_readings.battery_voltage").alias("battery_voltage"),
-                col("failure.diagnostics.sensor_readings.engine_temp_f").alias("engine_temp_f"),
-                col("failure.diagnostics.sensor_readings.hydraulic_pressure_psi").alias("hydraulic_pressure_psi"),
-                col("failure.diagnostics.sensor_readings.brake_line_pressure_psi").alias("brake_line_pressure_psi"),
-                col("failure.diagnostics.sensor_readings.oil_pressure_psi").alias("oil_pressure_psi"),
-                col("failure.diagnostics.sensor_readings.tire_pressure_psi").alias("tire_pressure_psi"),
-                
-                # Notes (may contain root cause analysis)
-                col("notes.driver_note").alias("driver_note"),
-                col("notes.maintenance_note").alias("maintenance_note"),
-                
-                # Metadata
-                col("_ingestion_timestamp"),
-                col("_source_file")
-            )
+        .filter(col("event_type") == "FAILURE")
+        .select(
+            # Core identifiers
+            col("event_id"),
+            col("event_timestamp"),
+            
+            # Truck context (for analysis)
+            col("truck_id"),
+            col("truck_vin"),
+            col("truck_make"),
+            col("truck_model"),
+            col("truck_year"),
+            col("truck_capacity_tons"),
+            col("truck_home_site_id"),
+            col("truck_status"),
+            col("truck_odometer_miles"),
+            col("truck_engine_hours"),
+            
+            # Location context
+            col("location_site_id"),
+            col("location_site_name"),
+            col("location_latitude"),
+            col("location_longitude"),
+            col("location_geofence_zone"),
+            col("location_city"),
+            col("location_state"),
+            
+            # Flatten failure details
+            col("failure.failure_id").alias("failure_id"),
+            to_timestamp(col("failure.failure_timestamp")).alias("failure_timestamp"),  # NEW: Point in time
+            col("failure.failure_type").alias("failure_type"),
+            col("failure.failure_code").alias("failure_code"),
+            col("failure.severity").alias("severity"),
+            col("failure.symptoms").alias("symptoms"),
+            
+            # Flatten diagnostics
+            col("failure.diagnostics.fault_codes").alias("fault_codes"),
+            col("failure.diagnostics.sensor_readings.battery_voltage").alias("battery_voltage"),
+            col("failure.diagnostics.sensor_readings.engine_temp_f").alias("engine_temp_f"),
+            col("failure.diagnostics.sensor_readings.hydraulic_pressure_psi").alias("hydraulic_pressure_psi"),
+            col("failure.diagnostics.sensor_readings.brake_line_pressure_psi").alias("brake_line_pressure_psi"),
+            col("failure.diagnostics.sensor_readings.oil_pressure_psi").alias("oil_pressure_psi"),
+            col("failure.diagnostics.sensor_readings.tire_pressure_psi").alias("tire_pressure_psi"),
+            
+            # Weather context (for correlation analysis)
+            col("weather_condition"),
+            col("weather_temperature_f"),
+            col("weather_humidity_pct"),
+            col("weather_wind_mph"),
+            col("weather_visibility_miles"),
+            col("weather_severity_level"),
+            
+            # Metadata
+            col("_ingestion_timestamp"),
+            col("_source_file")
+        )
     )
+
 
 @dlt.table(
     name="repair_events",
-    comment="Silver layer: Repair-specific events with service details and costs",
+    comment="Silver layer: Repair-specific events with failure linkage, vendor details, and parts tracking",
     table_properties={
         "quality": "silver",
         "pipelines.autoOptimize.managed": "true"
     }
 )
-@dlt.expect_or_drop("is_repair_event", "event_type = 'REPAIR'")
-@dlt.expect_or_drop("has_repair_details", "repair IS NOT NULL")
-@dlt.expect("has_repair_status", "repair.repair_status IS NOT NULL")
+@dlt.expect_or_drop("has_repair_details", "repair_id IS NOT NULL")
+@dlt.expect("has_addresses_failure_id", "addresses_failure_id IS NOT NULL")  # NEW: Ensure linkage
+@dlt.expect("has_repair_timestamps", "repair_start_timestamp IS NOT NULL AND repair_end_timestamp IS NOT NULL")
 def repair_events():
     """
-    Specialized table for REPAIR events with service and cost details.
+    Specialized table for REPAIR events with failure linkage and service details.
     
     This table:
     - Filters only REPAIR events from maintenance_events_clean
-    - Flattens repair-specific data (repair.*, service.*)
-    - Includes technician and parts information for cost analysis
-    - Links to vendor data for stream-static join opportunities
+    - Flattens repair-specific nested structures (repair.*, service.*)
+    - Links repairs to failures via addresses_failure_id
+    - Tracks repair timestamps (start and end)
+    - Includes vendor, technicians, and parts used
     
     Use cases:
-    - Repair cost analysis (labor hours, parts costs by repair type)
-    - Vendor performance tracking (which vendors complete repairs fastest?)
-    - Technician productivity metrics (repairs per technician)
-    - Parts inventory optimization (which parts are used most?)
+    - Repair effectiveness analysis (do repairs resolve failures?)
+    - Vendor performance tracking (which vendors are fastest/best?)
+    - Cost tracking (parts + labor costs)
+    - Downtime calculation (repair_end - failure_timestamp)
+    - Repeat failure detection (same failure after repair?)
     """
     return (
         dlt.read_stream("maintenance_events_clean")
-            .filter(col("event_type") == "REPAIR")
-            .select(
-                # Core event metadata
-                col("event_id"),
-                col("event_type"),
-                col("event_timestamp"),
-                
-                # Truck context
-                col("truck_id"),
-                col("truck_vin"),
-                col("truck_make"),
-                col("truck_model"),
-                col("truck_year"),
-                col("truck_odometer_miles"),
-                col("truck_engine_hours"),
-                
-                # Location context
-                col("location_site_id"),
-                col("location_site_name"),
-                col("location_city"),
-                col("location_state"),
-                
-                # Flatten repair-specific data
-                col("repair.repair_id").alias("repair_id"),
-                col("repair.repair_status").alias("repair_status"),
-                col("repair.repair_category").alias("repair_category"),
-                col("repair.labor_hours").alias("labor_hours"),
-                col("repair.completion_timestamp").alias("completion_timestamp"),
-                
-                # Flatten service data (vendor, technicians, parts)
-                col("service.vendor_id").alias("vendor_id"),
-                col("service.vendor_name").alias("vendor_name"),
-                col("service.technicians").alias("technicians"),
-                col("service.parts_used").alias("parts_used"),
-                
-                # Notes
-                col("notes.maintenance_note").alias("maintenance_note"),
-                col("notes.dispatcher_note").alias("dispatcher_note"),
-                
-                # Metadata
-                col("_ingestion_timestamp"),
-                col("_source_file")
-            )
+        .filter(col("event_type") == "REPAIR")
+        .select(
+            # Core identifiers
+            col("event_id"),
+            col("event_timestamp"),
+            
+            # Truck context
+            col("truck_id"),
+            col("truck_vin"),
+            col("truck_make"),
+            col("truck_model"),
+            col("truck_year"),
+            col("truck_status"),
+            
+            # Location context
+            col("location_site_id"),
+            col("location_site_name"),
+            col("location_city"),
+            col("location_state"),
+            
+            # Flatten repair details
+            col("repair.repair_id").alias("repair_id"),
+            col("repair.addresses_failure_id").alias("addresses_failure_id"),  # NEW: Links to failure
+            col("repair.repair_status").alias("repair_status"),
+            col("repair.repair_category").alias("repair_category"),
+            col("repair.labor_hours").alias("labor_hours"),
+            to_timestamp(col("repair.repair_start_timestamp")).alias("repair_start_timestamp"),  # NEW
+            to_timestamp(col("repair.repair_end_timestamp")).alias("repair_end_timestamp"),      # NEW
+            
+            # Flatten service details
+            col("service.vendor_id").alias("vendor_id"),
+            col("service.vendor_name").alias("vendor_name"),
+            col("service.technicians").alias("technicians"),  # Array of technician structs
+            col("service.parts_used").alias("parts_used"),    # Array of part structs
+            
+            # Metadata
+            col("_ingestion_timestamp"),
+            col("_source_file")
+        )
     )
 
-@dlt.table(
-    name="downtime_events",
-    comment="Silver layer: Downtime events with duration and reason tracking",
-    table_properties={
-        "quality": "silver",
-        "pipelines.autoOptimize.managed": "true"
-    }
-)
-@dlt.expect_or_drop("is_downtime_event", "event_type = 'DOWNTIME'")
-@dlt.expect_or_drop("has_downtime_details", "downtime IS NOT NULL")
-@dlt.expect("has_downtime_reason", "downtime.reason IS NOT NULL")
-def downtime_events():
-    """
-    Specialized table for DOWNTIME events with duration and reason analysis.
-    
-    This table:
-    - Filters only DOWNTIME events from maintenance_events_clean
-    - Flattens downtime-specific data (start/end times, reason, planned vs unplanned)
-    - Enables downtime cost calculations and trend analysis
-    - Distinguishes planned maintenance from unexpected downtime
-    
-    Use cases:
-    - Fleet availability metrics (what % of time are trucks operational?)
-    - Downtime cost analysis (revenue lost per hour of downtime)
-    - Planned vs unplanned downtime ratio (maintenance effectiveness)
-    - Root cause analysis (which failure types cause longest downtime?)
-    """
-    return (
-        dlt.read_stream("maintenance_events_clean")
-            .filter(col("event_type") == "DOWNTIME")
-            .select(
-                # Core event metadata
-                col("event_id"),
-                col("event_type"),
-                col("event_timestamp"),
-                
-                # Truck context
-                col("truck_id"),
-                col("truck_vin"),
-                col("truck_make"),
-                col("truck_model"),
-                col("truck_year"),
-                col("truck_odometer_miles"),
-                col("truck_engine_hours"),
-                
-                # Location context
-                col("location_site_id"),
-                col("location_site_name"),
-                col("location_city"),
-                col("location_state"),
-                
-                # Flatten downtime-specific data
-                col("downtime.downtime_id").alias("downtime_id"),
-                col("downtime.start_timestamp").alias("start_timestamp"),
-                col("downtime.end_timestamp").alias("end_timestamp"),
-                col("downtime.reason").alias("downtime_reason"),
-                col("downtime.is_planned").alias("is_planned_downtime"),
-                
-                # Notes
-                col("notes.driver_note").alias("driver_note"),
-                col("notes.dispatcher_note").alias("dispatcher_note"),
-                col("notes.maintenance_note").alias("maintenance_note"),
-                
-                # Metadata
-                col("_ingestion_timestamp"),
-                col("_source_file")
-            )
-    )
+
+# REMOVED: downtime_events table - downtime will be derived in gold layer from failure → repair joins
