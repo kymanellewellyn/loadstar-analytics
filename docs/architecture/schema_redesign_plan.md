@@ -171,7 +171,9 @@ JOIN repair_events r
 
 ### **Option 2: Pre-Aggregate in Gold (Materialized Table)**
 ```python
-@dlt.table(name="fact_truck_downtime")
+from pyspark import pipelines as dp
+
+@dp.table(name="fact_truck_downtime")
 def fact_truck_downtime():
     return (
         # Join failure → repair, pre-calculate downtime
@@ -280,7 +282,7 @@ DROP TABLE IF EXISTS loadstar_dev.maintenance.maintenance_events_bronze CASCADE;
 
 ### **3. Failure→Repair matching logic?**
 - How to handle multiple repairs for one failure?
-- Time window for matching (24 hours? 48 hours?)
+- Time window for matching (24 hours? 48 hours?)?
 - What if no repair follows a failure?
 
 ---

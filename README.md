@@ -157,14 +157,23 @@ The platform includes a realistic event simulation layer for maintenance data.
 
 ## Governance
 
-Implemented using Unity Catalog:
+Implemented using Unity Catalog following **unified schema per domain** approach:
 
-- Catalog: `loadstar`
-- Domain schemas:
-  - maintenance_raw / bronze / silver / gold
-  - transport_raw / bronze / silver / gold
-- Role-based access control (RBAC)
-- Data lineage and audit readiness
+- **Catalog**: `loadstar_dev` (development) / `loadstar` (production)
+- **Schemas** (one per business domain):
+  - `maintenance` - All maintenance tables (bronze, silver, gold)
+  - `transport` - All transport tables (bronze, silver, gold)
+- **Volumes**:
+  - `loadstar_dev.maintenance.truck_maintenance_events_raw`
+  - `loadstar_dev.maintenance._checkpoints`
+  - `loadstar_dev.transport.transport_events_raw`
+- **Tables**:
+  - `loadstar_dev.maintenance.maintenance_events_bronze` (bronze layer)
+  - `loadstar_dev.maintenance.maintenance_events_clean` (silver layer)
+  - `loadstar_dev.maintenance.failure_events` (silver layer)
+  - `loadstar_dev.maintenance.fact_truck_downtime` (gold layer)
+
+See: `docs/architecture/catalog_schema_conventions.md` for full details
 
 ---
 

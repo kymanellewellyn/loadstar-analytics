@@ -13,17 +13,12 @@ from src.maintenance.landing.event_builders import (
 
 def create_raw_events(number_of_events, random_seed=42, base_timestamp=None):
     """
-    Generate a list of synthetic raw maintenance events with proper failure-repair linkage.
+    Generate synthetic raw maintenance events with proper failure-repair linkage.
     
     Strategy:
     1. Generate failures first (~60% of total events)
     2. Generate repairs for 80% of failures (linked via addresses_failure_id)
     3. Sort all events chronologically by timestamp
-    
-    This ensures:
-    - Repairs always reference actual failure events
-    - Repairs occur temporally after their corresponding failures
-    - 20% of failures remain unrepaired (realistic scenario)
     
     Parameters:
         number_of_events: Total number of events to generate

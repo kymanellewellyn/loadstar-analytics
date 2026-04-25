@@ -1,0 +1,22 @@
+resources:
+  pipelines:
+    loadstar_maintenance_pipeline:
+      name: loadstar_maintenance_pipeline
+      catalog: loadstar_dev
+      target: maintenance
+      serverless: true
+      photon: true
+      continuous: false
+      development: false
+      channel: CURRENT
+      
+      libraries:
+        - glob:
+            include: /Users/kymane.llewellyn@gmail.com/Projects/loadstar-analytics/pipelines/maintenance/bronze_pipeline.py
+        - glob:
+            include: /Users/kymane.llewellyn@gmail.com/Projects/loadstar-analytics/pipelines/maintenance/silver_pipeline.py
+        - glob:
+            include: /Users/kymane.llewellyn@gmail.com/Projects/loadstar-analytics/pipelines/maintenance/gold_pipeline.py
+      
+      configuration:
+        root_path: /Users/kymane.llewellyn@gmail.com/Projects/loadstar-analytics
