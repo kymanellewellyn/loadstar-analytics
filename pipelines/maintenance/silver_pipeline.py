@@ -109,6 +109,7 @@ def maintenance_events_clean():
     )
     
     # Deduplicate: Keep latest record per event_id based on _ingestion_timestamp
+    
     window_spec = Window.partitionBy("event_id").orderBy(col("_ingestion_timestamp").desc())
     df = df.withColumn("row_num", row_number().over(window_spec))
     df = df.filter(col("row_num") == 1).drop("row_num")

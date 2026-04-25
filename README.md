@@ -177,7 +177,7 @@ See: `docs/architecture/catalog_schema_conventions.md` for full details
 
 ---
 
-## AI Layer (Planned)
+## AI Layer 
 
 The platform is designed to support AI agents:
 
