@@ -1,12 +1,8 @@
 """
 Centralized data quality expectations for maintenance pipeline.
 
-This module defines all expectation rules used across Bronze, Silver, and Gold
-layers for the maintenance domain. Centralizing expectations makes them:
-- Reusable across multiple pipeline files
-- Easier to maintain and update
-- Auditable in one location
-- Documented with business context
+This module defines expectation rules used across Bronze, Silver, and Gold
+layers for the maintenance domain.
 """
 
 # ==============================================================================

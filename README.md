@@ -173,12 +173,6 @@ Implemented using Unity Catalog following **unified schema per domain** approach
   - `loadstar_dev.maintenance.failure_events` (silver layer)
   - `loadstar_dev.maintenance.fact_truck_downtime` (gold layer)
 
-**Benefits**:
-- Simpler lineage and discovery
-- Less governance overhead
-- Standard Databricks pattern
-- Layers distinguished by table names, properties, and pipeline lineage
-
 See: `docs/architecture/catalog_schema_conventions.md` for full details
 
 ---

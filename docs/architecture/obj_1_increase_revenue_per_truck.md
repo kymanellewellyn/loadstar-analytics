@@ -43,12 +43,6 @@ Each fact table strictly separates:
 * **Measurement columns**  
 * **Analytical (dimension) columns**
 
-This ensures:
-
-* no double counting  
-* consistent aggregations  
-* stable downstream reporting
-
 ---
 
 ## **Fact Definitions**
