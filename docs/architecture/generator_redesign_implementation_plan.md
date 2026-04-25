@@ -293,13 +293,13 @@ MAINTENANCE_EVENT_SCHEMA = StructType([
 
 #### **1. Update `failure_events` Table**
 ```python
-@dlt.table(
+@dp.table(
     name="failure_events",
     comment="Cleaned failure events with flattened structure"
 )
 def failure_events():
     return (
-        dlt.read_stream("maintenance_events_clean")
+        spark.readStream.table("maintenance_events_clean")
         .filter(F.col("event_type") == "FAILURE")
         .select(
             # Core identifiers
@@ -338,13 +338,13 @@ def failure_events():
 
 #### **2. Update `repair_events` Table**
 ```python
-@dlt.table(
+@dp.table(
     name="repair_events",
     comment="Cleaned repair events with flattened structure and failure linkage"
 )
 def repair_events():
     return (
-        dlt.read_stream("maintenance_events_clean")
+        spark.readStream.table("maintenance_events_clean")
         .filter(F.col("event_type") == "REPAIR")
         .select(
             # Core identifiers
@@ -386,7 +386,7 @@ def repair_events():
 ### **File**: `pipelines/maintenance/gold_pipeline.py`
 
 ```python
-@dlt.table(
+@dp.table(
     name="fact_truck_downtime",
     comment="Truck downtime derived from failure → repair linkage"
 )
@@ -402,7 +402,7 @@ def fact_truck_downtime():
     - Total downtime = repair_end - failure
     """
     
-    failures = dlt.read("failure_events").select(
+    failures = spark.read.table("failure_events").select(
         F.col("failure_id"),
         F.col("failure_timestamp"),
         F.col("failure_type"),
@@ -411,7 +411,7 @@ def fact_truck_downtime():
         F.col("severity"),
     )
     
-    repairs = dlt.read("repair_events").select(
+    repairs = spark.read.table("repair_events").select(
         F.col("addresses_failure_id").alias("failure_id"),  # Join key
         F.col("repair_id"),
         F.col("repair_start_timestamp"),

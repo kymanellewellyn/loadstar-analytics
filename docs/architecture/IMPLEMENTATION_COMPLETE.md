@@ -176,19 +176,22 @@ Once silver tables are populated, implement gold layer with downtime calculation
 
 ```python
 # Example: fact_truck_downtime (to be added to gold_pipeline.py)
-@dlt.table(
+from pyspark import pipelines as dp
+from pyspark.sql import functions as F
+
+@dp.table(
     name="fact_truck_downtime",
     comment="Truck downtime derived from failure → repair linkage"
 )
 def fact_truck_downtime():
-    failures = dlt.read("failure_events").select(
+    failures = spark.read.table("failure_events").select(
         F.col("failure_id"),
         F.col("failure_timestamp"),
         F.col("failure_type"),
         F.col("truck_id"),
     )
     
-    repairs = dlt.read("repair_events").select(
+    repairs = spark.read.table("repair_events").select(
         F.col("addresses_failure_id").alias("failure_id"),
         F.col("repair_id"),
         F.col("repair_start_timestamp"),

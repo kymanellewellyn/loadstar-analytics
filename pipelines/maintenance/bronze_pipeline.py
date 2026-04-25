@@ -5,7 +5,7 @@ This pipeline ingests raw JSON events from the maintenance volume using Auto Loa
 with an explicit schema for type safety and data quality validation.
 """
 
-import dlt
+from pyspark import pipelines as dp
 from pyspark.sql.functions import current_timestamp, col
 
 from src.common.paths import get_volume_path
@@ -21,7 +21,7 @@ SOURCE_PATH = get_volume_path(domain, "events")
 SCHEMA = domain_config["schema"]
 TABLE_NAME = domain_config["bronze_table"]
 
-@dlt.table(
+@dp.table(
     name=TABLE_NAME,
     comment="Bronze layer: Raw maintenance events with explicit schema validation",
     table_properties={
