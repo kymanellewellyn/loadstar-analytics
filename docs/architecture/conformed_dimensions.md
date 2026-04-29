@@ -63,7 +63,7 @@ All dimensions follow:
 
 ---
 
-### **Maintenance Dimensions (Objective 3\)**
+### **Maintenance Dimensions**
 
 * `dim_failure_type`  
 * `dim_vendor`  
